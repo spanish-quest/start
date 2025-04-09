@@ -25,7 +25,6 @@
       position: absolute;
       width: 100%;
       height: 100%;
-      background-image: url('https://i.pinimg.com/1200x/db/be/ec/dbbeec1307aa252de76212ac3cfc9da0.jpg');
       background-size: cover;
       background-position: center;
     }
@@ -47,7 +46,7 @@
 
     #dialog-box {
       position: absolute;
-      bottom: 150px;
+      bottom: 10px; /* Move dialog box to beneath characters */
       left: 50px;
       right: 50px;
       padding: 20px;
@@ -73,14 +72,21 @@
         display: none; /* Hide elements */
     }
     
+    /* Clouds Background */
+    .clouds-background {
+      background-image: url('https://wallpapercave.com/wp/wp1841736.jpg'); /* Example cloud background */
+      background-size: cover;
+      background-position: center;
+    }
+    
   </style>
 </head>
 <body>
   
 <div id="cutscene-container">
   
-  <!-- Background -->
-  <div class="background"></div>
+  <!-- Background for Grandpa Cutscene -->
+  <div class="background" style="background-image: url('https://i.pinimg.com/1200x/db/be/ec/dbbeec1307aa252de76212ac3cfc9da0.jpg');"></div>
   
   <!-- Grandpa and Protagonist for Cutscene -->
   <img id="grandpa" class="character hidden" src="https://tiermaker.com/images/chart/chart/smg4-character-tier-list-700917/oldmanpng.png" alt="Grandpa">
@@ -114,6 +120,7 @@ const protagonist = document.getElementById("protagonist");
 const plane = document.getElementById("plane");
 const dialogBox = document.getElementById("dialog-box");
 const instructions = document.getElementById("instructions");
+const background = document.querySelector('.background');
 
 // Function to start Grandpa cutscene
 function startGrandpaCutscene() {
@@ -134,6 +141,8 @@ function handleGrandpaCutscene() {
         grandpa.classList.add("hidden");
         protagonist.classList.add("hidden");
         dialogBox.classList.add("hidden");
+        background.style.backgroundImage = "url('https://wallpapercave.com/wp/wp1841736.jpg')"; // Change background to clouds
+        background.style.backgroundColor = "lightblue"; // Add light blue background
         startPlaneCutscene();
         currentCutscene = "plane";
         return;
