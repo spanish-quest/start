@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Treasure Hunt Cutscenes</title>
+  <style>
+    /* General Styles */
+    body {
+      margin: 0;
+      padding: 0;
+      background-color: black;
+      color: white;
+      font-family: Arial, sans-serif;
+      overflow: hidden;
+    }
+
+    #cutscene-container {
+      position: relative;
+      width: 100vw;
+      height: 100vh;
+    }
+
+    .background {
+      position: absolute;
+      width: 100%;
+      height: 100%;
+      background-image: url('https://i.pinimg.com/1200x/db/be/ec/dbbeec1307aa252de76212ac3cfc9da0.jpg');
+      background-size: cover;
+      background-position: center;
+    }
+
+    .character {
+      position: absolute;
+      bottom: 50px;
+    }
+
+    #grandpa {
+      left: 50px;
+      width: 200px; /* Adjust size as needed */
+    }
+
+    #protagonist {
+      right: 50px;
+      width: 200px; /* Adjust size as needed */
+    }
+
+    #dialog-box {
+      position: absolute;
+      bottom: 150px;
+      left: 50px;
+      right: 50px;
+      padding: 20px;
+      background-color: rgba(0, 0, 0, 0.8);
+      border-radius: 10px;
+      font-size: 18px;
+    }
+
+    #plane {
+      position: absolute;
+      width: 150px; /* Adjust size as needed */
+      top: 30%;
+    }
+    
+    #instructions {
+      position: absolute;
+      bottom: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+    }
+    
+    .hidden {
+        display: none; /* Hide elements */
+    }
+    
+  </style>
+</head>
+<body>
+  
+<div id="cutscene-container">
+  
+  <!-- Background -->
+  <div class="background"></div>
+  
+  <!-- Grandpa and Protagonist for Cutscene -->
+  <img id="grandpa" class="character hidden" src="https://tiermaker.com/images/chart/chart/smg4-character-tier-list-700917/oldmanpng.png" alt="Grandpa">
+  <img id="protagonist" class="character hidden" src="https://static.vecteezy.com/system/resources/thumbnails/027/517/476/small_2x/pixel-art-hooddie-boy-character-png.png" alt="Protagonist">
+  
+  <!-- Plane for Cutscene -->
+  <img id="plane" class="hidden" src="https://dejpknyizje2n.cloudfront.net/media/carstickers/versions/airplane-mail-plane-pixel-art-sticker-u8a44-x450.png" alt="Plane">
+  
+  <!-- Dialog Box -->
+  <div id="dialog-box" class="hidden"></div>
+  
+</div>
+
+<!-- Instructions -->
+<div id="instructions">Press SPACE to continue...</div>
+
+<script>
+let currentCutscene = "grandpa"; // Start with grandpa cutscene
+let dialogIndex = 0;
+
+// Dialog lines for Grandpa cutscene
+const dialogLines = [
+    "Grandpa: There is treasure hidden in Mexico...",
+    "Grandpa: If you find it, you'll be rich beyond your wildest dreams!",
+    "Protagonist: Treasure? In Mexico? I'm going to find it!"
+];
+
+// Get elements
+const grandpa = document.getElementById("grandpa");
+const protagonist = document.getElementById("protagonist");
+const plane = document.getElementById("plane");
+const dialogBox = document.getElementById("dialog-box");
+const instructions = document.getElementById("instructions");
+
+// Function to start Grandpa cutscene
+function startGrandpaCutscene() {
+    grandpa.classList.remove("hidden");
+    protagonist.classList.remove("hidden");
+    dialogBox.classList.remove("hidden");
+    
+    // Show first dialog line
+    dialogBox.textContent = dialogLines[dialogIndex];
+}
+
+// Function to handle space key press during Grandpa cutscene
+function handleGrandpaCutscene() {
+    dialogIndex++;
+    
+    if (dialogIndex >= dialogLines.length) {
+        // End Grandpa cutscene and start plane cutscene
+        grandpa.classList.add("hidden");
+        protagonist.classList.add("hidden");
+        dialogBox.classList.add("hidden");
+        startPlaneCutscene();
+        currentCutscene = "plane";
+        return;
+    }
+    
+    // Show next dialog line
+    dialogBox.textContent = dialogLines[dialogIndex];
+}
+
+// Function to start Plane cutscene
+function startPlaneCutscene() {
+    plane.classList.remove("hidden");
+    
+    // Animate plane flying across the screen
+    let planeX = -150; // Start off-screen
+    const interval = setInterval(() => {
+        planeX += 5; // Move plane right
+        
+        if (planeX > window.innerWidth) {
+            clearInterval(interval); // Stop animation when plane leaves screen
+            
+            // Redirect to LV1.html after the plane cutscene ends
+            window.location.href = "LV1.html";
+            return;
+        }
+        
+        plane.style.left = `${planeX}px`;
+        
+    }, 30); // Adjust speed as needed
+}
+
+// Event listener for space key press
+document.addEventListener("keydown", (event) => {
+   if (event.code === "Space") {
+       if (currentCutscene === "grandpa") {
+           handleGrandpaCutscene();
+       }
+   } 
+});
+
+// Start first cutscene on page load
+startGrandpaCutscene();
+
+</script>
+
+</body>
+</html>
