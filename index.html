@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Mexico's Adventure</title>
+<link href="https://cdnjs.cloudflare.com/ajax/libs/animejs/3.2.1/anime.css" rel="stylesheet" type="text/css">
+<style>
+body {
+      margin: 0;
+      background: url('https://upload.wikimedia.org/wikipedia/commons/thumb/c/ca/Abies_religiosa_Chincua_5.jpg/220px-Abies_religiosa_Chincua_5.jpg') no-repeat center;
+      background-size: cover;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      height: 100vh;
+      font-family: 'Caveat Brush', cursive;
+    }
+
+    .wiggle {
+      font-size: 6em;
+      text-shadow: 2px 2px 4px #000000;
+      cursor: pointer;
+    }
+
+    .play {
+      margin-top: 20px;
+    }
+  </style>
+</head>
+<body>
+<div class="wiggle" id="title">
+Mexico's Adventure
+  </div>
+<a href="cut.html" id="play-btn">
+<button class="play">PLAY</button>
+</a>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/animejs/3.2.1/anime.js"></script>
+<script>
+anime({
+      targets: '#title',
+      translateX: function(el) {
+        return Math.random() * (window.innerWidth - el.offsetWidth) - (window.innerWidth - el.offsetWidth) / 2;
+      },
+      translateY: function(el) {
+        return Math.random() * (window.innerHeight - el.offsetHeight) - (window.innerHeight - el.offsetHeight) / 2;
+      },
+      duration: 500,
+      direction: 'alternate',
+      loop: true
+    });
+  </script>
+</body>
+</html>
