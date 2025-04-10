@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Spanish Quest</title>
+<title>Mexico's Adventure</title>
 <link href="https://cdnjs.cloudflare.com/ajax/libs/animejs/3.2.1/anime.css" rel="stylesheet" type="text/css">
 <style>
 body {
@@ -12,15 +12,20 @@ body {
       background-size: cover;
       display: flex;
       flex-direction: column;
-      align-items: center;
+      align-items: flex-start;
       justify-content: center;
       height: 100vh;
       font-family: 'Caveat Brush', cursive;
+      position: relative;
     }
 
     .wiggle {
       font-size: 2em;
       text-shadow: 2px 2px 4px #000000;
+      position: absolute;
+      top: 0;
+      left: 50%;
+      transform: translateX(-50%);
       cursor: pointer;
     }
 
@@ -33,7 +38,7 @@ body {
 </head>
 <body>
 <div class="wiggle" id="title">
-Mexico's Adventure
+Spanish Quest
   </div>
 <a href="cut.html" id="play-btn">
 <button class="play">PLAY</button>
@@ -43,10 +48,10 @@ Mexico's Adventure
 anime({
       targets: '#title',
       translateX: function(el) {
-        return Math.random() * (window.innerWidth - el.offsetWidth) - (window.innerWidth - el.offsetWidth) / 2;
+        return Math.random() * 5 - 5;
       },
       translateY: function(el) {
-        return Math.random() * (window.innerHeight - el.offsetHeight) - (window.innerHeight - el.offsetHeight) / 2;
+        return Math.random() * 5 - 5;
       },
       duration: 500,
       direction: 'alternate',
