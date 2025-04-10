@@ -1,62 +1,53 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Mexico's Adventure</title>
-<link href="https://cdnjs.cloudflare.com/ajax/libs/animejs/3.2.1/anime.css" rel="stylesheet" type="text/css">
-<style>
-body {
-      margin: 0;
-      background: url('https://upload.wikimedia.org/wikipedia/commons/thumb/c/ca/Abies_religiosa_Chincua_5.jpg/220px-Abies_religiosa_Chincua_5.jpg') no-repeat center;
-      background-size: cover;
-      display: flex;
-      flex-direction: column;
-      align-items: flex-start;
-      justify-content: center;
-      height: 100vh;
-      font-family: 'Caveat Brush', cursive;
-      position: relative;
-    }
-
-    .wiggle {
-      font-size: 2em;
-      text-shadow: 2px 2px 4px #000000;
-      position: absolute;
-      top: 0;
-      left: 50%;
-      transform: translateX(-50%);
-      cursor: pointer;
-    }
-
-    .play {
-      margin-top: 20px;
-      font-size: 3em;
-      padding: 10px 20px;
-    }
-  </style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NCG - Spanish Quest</title>
+    <link href="https://fonts.googleapis.com/css2?family=Pacifico&display=swap" rel="stylesheet">
+    <style>
+        body {
+            background-image: url('https://lacgeo.com/sites/default/files/pinus_hartwegii_forest_opt.jpg');
+            background-size: cover;
+            background-position: center;
+            text-align: center;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+        }
+        .title {
+            font-family: 'Pacifico', cursive;
+            font-size: 50px;
+            color: white;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.7);
+            position: absolute;
+            top: 10%;
+            animation: wiggle 1s infinite alternate;
+        }
+        @keyframes wiggle {
+            0% { transform: rotate(-3deg); }
+            100% { transform: rotate(3deg); }
+        }
+        .start-button {
+            padding: 15px 30px;
+            font-size: 20px;
+            font-weight: bold;
+            color: white;
+            background-color: #008CBA;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: background-color 0.3s ease;
+        }
+        .start-button:hover {
+            background-color: #005f73;
+        }
+    </style>
 </head>
 <body>
-<div class="wiggle" id="title">
-Spanish Quest
-  </div>
-<a href="cut.html" id="play-btn">
-<button class="play">PLAY</button>
-</a>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/animejs/3.2.1/anime.js"></script>
-<script>
-anime({
-      targets: '#title',
-      translateX: function(el) {
-        return Math.random() * 5 - 5;
-      },
-      translateY: function(el) {
-        return Math.random() * 5 - 5;
-      },
-      duration: 500,
-      direction: 'alternate',
-      loop: true
-    });
-  </script>
+    <h1 class="title">Spanish Quest</h1>
+    <button class="start-button" onclick="location.href='cut.html'">Start</button>
 </body>
 </html>
