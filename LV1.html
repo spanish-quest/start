@@ -3,167 +3,306 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Spanish Quest-Level 1</title>
+  <title>Platformer Game</title>
   <style>
     body { margin: 0; overflow: hidden; }
-    canvas { display: block; }
+    canvas { display: block; background: #87CEEB; }
     #overlay {
       position: fixed;
       width: 100%;
       height: 100%;
-      background: black;
-      opacity: 0;
-      pointer-events: none;
-      transition: opacity 0.5s;
+      background: rgba(0, 0, 0, 0.8);
+      color: white;
+      display: none;
+      justify-content: center;
+      align-items: center;
+      flex-direction: column;
+    }
+    #restartButton {
+      padding: 10px 20px;
+      font-size: 20px;
+      margin-top: 20px;
+      cursor: pointer;
     }
   </style>
 </head>
 <body>
-  <div id="overlay"></div>
+  <div id="overlay">
+    <h1>You died</h1>
+    <button id="restartButton">Restart</button>
+  </div>
   <canvas id="gameCanvas"></canvas>
 
   <script>
     const canvas = document.getElementById("gameCanvas");
     const ctx = canvas.getContext("2d");
-    const overlay = document.getElementById("overlay");
-    
-    // Canvas setup
     canvas.width = 800;
     canvas.height = 400;
-    const VIEWPORT_MARGIN = 200; // Distance from right edge to generate new content
-    
-    // Game state
-    let isDead = false;
-    let fadeAlpha = 0;
+
+    // Game Settings
+    const GRAVITY = 0.5;
+    const FRICTION = 0.85;
+    const LEVEL_END_X = 5000;
     let cameraX = 0;
-    const LEVEL_END_X = 5000; // Total level length
-    let lastPlatformX = 0;
-    
-    // Player setup
+    let isDead = false;
+
+    // Player Setup
     const player = {
       x: 50,
-      y: 300,
+      y: 50,
       width: 40,
       height: 60,
-      color: "black",
-      headColor: "beige",
       velocityX: 0,
       velocityY: 0,
-      speed: 5,
-      isJumping: false,
+      speed: 15,
+      onGround: false
     };
 
-    // Level elements
-    const blocks = generateInitialPlatforms();
-    const enemies = [];
-    const cave = {
-      x: LEVEL_END_X - 100,
-      y: canvas.height - 150,
-      width: 80,
-      height: 100
+    // Level Elements
+    let blocks = [];
+    let enemies = [];
+    const levelEnd = {
+      x: LEVEL_END_X - 200,
+      y: canvas.height - 250,
+      width: 200,
+      height: 250,
+      image: new Image()
     };
 
-    function generateInitialPlatforms() {
+    // Image Load Handler
+    levelEnd.image.onload = () => console.log("Level end image loaded");
+    levelEnd.image.src = 'https://wallpapers.com/images/hd/pixelated-cave-entrace-2u94mar9b5un3n57.jpg';
+
+    // Initialize Game
+    function initializeGame() {
+      blocks = generatePlatformLayout();
+      enemies = generateEnemies(blocks);
+      
+      player.x = blocks[0].x + blocks[0].width/2 - player.width/2;
+      player.y = blocks[0].y - player.height;
+      player.velocityX = 0;
+      player.velocityY = 0;
+      player.onGround = true;
+      
+      cameraX = 0;
+      isDead = false;
+    }
+
+    // Platform Generation
+    function generatePlatformLayout() {
       const platforms = [];
-      // Starting platform
-      platforms.push({ x: 0, y: canvas.height - 50, width: 200, height: 20 });
+      const floorY = canvas.height - 50;
+
+      // Initial platform
+      platforms.push({
+        x: 0,
+        y: floorY,
+        width: 300,
+        height: 20
+      });
+
+      let currentX = 300;
+      let currentY = floorY;
+
+      while (currentX < LEVEL_END_X - 500) {
+        const horizontalGap = 100 + Math.random() * 150;
+        const verticalGap = Math.min(Math.max(-100, Math.random() * 200 - 100), 100);
+
+        const nextX = currentX + horizontalGap;
+        const nextY = currentY + verticalGap;
+
+        platforms.push({
+          x: nextX,
+          y: Math.min(Math.max(nextY, 150), floorY - 50),
+          width: 200 + Math.random() * 100,
+          height: 20
+        });
+
+        currentX = nextX;
+        currentY = nextY;
+      }
+
+      // Final platform
+      platforms.push({
+        x: LEVEL_END_X - 400,
+        y: floorY,
+        width: 200,
+        height: 20
+      });
+
       return platforms;
     }
 
-    function generatePlatform() {
-      const minX = lastPlatformX + 200;
-      const maxX = lastPlatformX + 400;
-      const x = Math.floor(Math.random() * (maxX - minX)) + minX;
-      
-      const minY = canvas.height - 300;
-      const maxY = canvas.height - 100;
-      const y = Math.floor(Math.random() * (maxY - minY)) + minY;
-      
-      const width = Math.floor(Math.random() * 150) + 100;
-      
-      const newPlatform = { x, y, width, height: 20 };
-      blocks.push(newPlatform);
-      lastPlatformX = x;
-      
-      // Generate enemy on this platform 30% of the time
-      if (Math.random() < 0.3) {
-        enemies.push({
-          x: x + width/2 - 16,
-          y: y - 32,
-          width: 32,
-          height: 32,
-          platform: newPlatform
-        });
-      }
+    // Enemy Generation
+    function generateEnemies(platforms) {
+      return platforms.slice(1).map(platform => {
+        if (Math.random() < 0.3) {
+          return {
+            x: platform.x + platform.width/2 - 16,
+            y: platform.y - 32,
+            width: 32,
+            height: 32
+          };
+        }
+        return null;
+      }).filter(Boolean);
     }
 
-    function checkEnemyCollisions() {
-      enemies.forEach(enemy => {
-        if (checkCollision(player, enemy)) {
-          handleDeath();
+    // Collision Detection
+    function checkPlatformCollision() {
+      player.onGround = false;
+      blocks.forEach(block => {
+        // Vertical collision
+        if (player.x < block.x + block.width &&
+            player.x + player.width > block.x &&
+            player.y + player.height > block.y &&
+            player.y < block.y + block.height) {
+            
+          if (player.velocityY > 0) {
+            player.y = block.y - player.height;
+            player.velocityY = 0;
+            player.onGround = true;
+          }
+          else if (player.velocityY < 0) {
+            player.y = block.y + block.height;
+            player.velocityY = 0;
+          }
+        }
+
+        // Horizontal collision
+        if (player.y + player.height > block.y &&
+            player.y < block.y + block.height) {
+            
+          if (player.velocityX > 0 && 
+              player.x + player.width <= block.x &&
+              player.x + player.width + player.velocityX > block.x) {
+            player.x = block.x - player.width;
+            player.velocityX = 0;
+          }
+          else if (player.velocityX < 0 && 
+                   player.x >= block.x + block.width &&
+                   player.x + player.velocityX < block.x + block.width) {
+            player.x = block.x + block.width;
+            player.velocityX = 0;
+          }
         }
       });
     }
 
-    function updateGeneration() {
-      const rightEdge = cameraX + canvas.width;
-      while (lastPlatformX < rightEdge + VIEWPORT_MARGIN && lastPlatformX < LEVEL_END_X - 500) {
-        generatePlatform();
+    // Player Physics
+    function updatePlayer() {
+      if (isDead) return;
+
+      if (keys.ArrowRight) player.velocityX += 0.5;
+      if (keys.ArrowLeft) player.velocityX -= 0.5;
+      
+      player.velocityX *= FRICTION;
+      player.velocityX = Math.max(-player.speed, Math.min(player.speed, player.velocityX));
+
+      if (keys.ArrowUp && player.onGround) {
+        player.velocityY = -12;
+        player.onGround = false;
+      }
+
+      player.velocityY += GRAVITY;
+      player.x += player.velocityX;
+      player.y += player.velocityY;
+      player.x = Math.max(0, Math.min(LEVEL_END_X - player.width, player.x));
+
+      checkPlatformCollision();
+    }
+
+    // Collision Handling
+    function checkCollisions() {
+      if (player.y + player.height > canvas.height) {
+        handleDeath();
+        return;
+      }
+
+      enemies.forEach(enemy => {
+        if (player.x < enemy.x + enemy.width &&
+            player.x + player.width > enemy.x &&
+            player.y < enemy.y + enemy.height &&
+            player.y + player.height > enemy.y) {
+          if (player.velocityY > 0) {
+            enemies = enemies.filter(e => e !== enemy);
+            player.velocityY = -10;
+          } else {
+            handleDeath();
+          }
+        }
+      });
+
+      if (player.x + player.width > levelEnd.x &&
+          player.x < levelEnd.x + levelEnd.width &&
+          player.y + player.height > levelEnd.y) {
+        window.location.href = 'cut2.html';
       }
     }
 
+    // Camera System
+    function updateCamera() {
+      cameraX = Math.max(0, player.x - canvas.width/2);
+      cameraX = Math.min(cameraX, LEVEL_END_X - canvas.width);
+    }
+
+    // Death Handling
+    function handleDeath() {
+      isDead = true;
+      document.getElementById('overlay').style.display = 'flex';
+    }
+
+    // Rendering
     function draw() {
       ctx.clearRect(0, 0, canvas.width, canvas.height);
       
-      // Draw background
-      const gradient = ctx.createLinearGradient(0, 0, 0, canvas.height);
-      gradient.addColorStop(0, '#FFB347');
-      gradient.addColorStop(1, '#87CEEB');
-      ctx.fillStyle = gradient;
+      // Background
+      ctx.fillStyle = '#87CEEB';
       ctx.fillRect(0, 0, canvas.width, canvas.height);
 
       ctx.save();
       ctx.translate(-cameraX, 0);
 
-      // Draw platforms
-      ctx.fillStyle = "green";
-      blocks.forEach(block => {
-        ctx.fillRect(block.x, block.y, block.width, block.height);
-      });
+      // Platforms
+      ctx.fillStyle = 'green';
+      blocks.forEach(p => ctx.fillRect(p.x, p.y, p.width, p.height));
 
-      // Draw enemies
-      ctx.fillStyle = "red";
-      enemies.forEach(enemy => {
-        ctx.fillRect(enemy.x, enemy.y, enemy.width, enemy.height);
-      });
+      // Enemies
+      ctx.fillStyle = 'red';
+      enemies.forEach(e => ctx.fillRect(e.x, e.y, e.width, e.height));
 
-      // Draw cave
-      ctx.fillStyle = "#654321";
-      ctx.fillRect(cave.x, cave.y, cave.width, cave.height);
-      ctx.fillStyle = "#000000";
-      ctx.fillRect(cave.x + 20, cave.y, 40, cave.height);
+      // Level End
+      ctx.drawImage(levelEnd.image, levelEnd.x, levelEnd.y, levelEnd.width, levelEnd.height);
 
-      // Draw player
-      ctx.fillStyle = player.color;
+      // Player
+      ctx.fillStyle = 'black';
       ctx.fillRect(player.x, player.y, player.width, player.height);
-      ctx.fillStyle = player.headColor;
-      ctx.fillRect(player.x + 10, player.y - 15, 20, 15);
 
       ctx.restore();
     }
 
+    // Game Loop
     function gameLoop() {
       if (!isDead) {
         updatePlayer();
-        checkEnemyCollisions();
-        checkWinCondition();
-        updateGeneration();
+        checkCollisions();
+        updateCamera();
       }
       draw();
       requestAnimationFrame(gameLoop);
     }
 
-    // Start the game
+    // Input Handling
+    const keys = {};
+    window.addEventListener('keydown', e => keys[e.code] = true);
+    window.addEventListener('keyup', e => keys[e.code] = false);
+    document.getElementById('restartButton').addEventListener('click', () => {
+      initializeGame();
+      document.getElementById('overlay').style.display = 'none';
+    });
+
+    // Start Game
+    initializeGame();
     gameLoop();
   </script>
 </body>
