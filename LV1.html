@@ -3,21 +3,10 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Platformer Game</title>
+  <title>Spanish Quest-Level 1</title>
   <style>
-    html, body {
-      margin: 0;
-      padding: 0;
-      overflow: hidden;
-      width: 100%;
-      height: 100%;
-    }
-    #gameCanvas {
-      display: block;
-      background: #87CEEB;
-      width: 100%;
-      height: 100%;
-    }
+    body { margin: 0; overflow: hidden; }
+    canvas { display: block; background: #87CEEB; }
     #overlay {
       position: fixed;
       width: 100%;
@@ -28,12 +17,11 @@
       justify-content: center;
       align-items: center;
       flex-direction: column;
-      font-size: min(5vw, 24px);
     }
     #restartButton {
-      padding: 1.5vh 3vw;
-      font-size: min(4vw, 20px);
-      margin-top: 2vh;
+      padding: 10px 20px;
+      font-size: 20px;
+      margin-top: 20px;
       cursor: pointer;
     }
   </style>
@@ -48,23 +36,8 @@
   <script>
     const canvas = document.getElementById("gameCanvas");
     const ctx = canvas.getContext("2d");
-    let baseWidth = 800;
-    let baseHeight = 400;
-    let scaleRatio = 1;
-    
-    // Set initial canvas size
-    function resizeCanvas() {
-      const targetWidth = window.innerWidth;
-      const targetHeight = window.innerHeight;
-      
-      // Maintain aspect ratio (16:9)
-      const widthRatio = targetWidth / baseWidth;
-      const heightRatio = targetHeight / baseHeight;
-      scaleRatio = Math.min(widthRatio, heightRatio);
-      
-      canvas.width = baseWidth * scaleRatio;
-      canvas.height = baseHeight * scaleRatio;
-    }
+    canvas.width = 800;
+    canvas.height = 400;
 
     // Game Settings
     const GRAVITY = 0.5;
@@ -73,18 +46,18 @@
     let cameraX = 0;
     let isDead = false;
 
-    // Player Setup (scales with screen size)
+    // Player Setup with Double Jump
     const player = {
       x: 50,
       y: 50,
-      baseWidth: 40,
-      baseHeight: 60,
+      width: 40,
+      height: 60,
       velocityX: 0,
       velocityY: 0,
       speed: 15,
       onGround: false,
-      get width() { return this.baseWidth * scaleRatio },
-      get height() { return this.baseHeight * scaleRatio }
+      jumpsRemaining: 2,
+      canDoubleJump: true
     };
 
     // Level Elements
@@ -92,18 +65,12 @@
     let enemies = [];
     const levelEnd = {
       x: LEVEL_END_X - 200,
-      y: 0, // Will be set in initializeGame()
-      baseWidth: 200,
-      baseHeight: 250,
-      image: new Image(),
-      get width() { return this.baseWidth * scaleRatio },
-      get height() { return this.baseHeight * scaleRatio }
+      y: canvas.height - 250,
+      width: 200,
+      height: 250,
+      image: new Image()
     };
 
-    // Image Load Handler
-    levelEnd.image.onload = () => {
-      levelEnd.y = canvas.height - levelEnd.height - 50 * scaleRatio;
-    };
     levelEnd.image.src = 'https://wallpapers.com/images/hd/pixelated-cave-entrace-2u94mar9b5un3n57.jpg';
 
     // Initialize Game
@@ -116,40 +83,40 @@
       player.velocityX = 0;
       player.velocityY = 0;
       player.onGround = true;
+      player.jumpsRemaining = 2;
+      player.canDoubleJump = true;
       
       cameraX = 0;
       isDead = false;
     }
 
-    // Platform Generation (scales with screen size)
+    // Platform Generation
     function generatePlatformLayout() {
       const platforms = [];
-      const floorY = canvas.height - 50 * scaleRatio;
+      const floorY = canvas.height - 50;
 
       platforms.push({
         x: 0,
         y: floorY,
-        baseWidth: 300,
-        height: 20 * scaleRatio,
-        get width() { return this.baseWidth * scaleRatio }
+        width: 300,
+        height: 20
       });
 
-      let currentX = 300 * scaleRatio;
+      let currentX = 300;
       let currentY = floorY;
 
-      while (currentX < LEVEL_END_X - 500 * scaleRatio) {
-        const horizontalGap = (100 + Math.random() * 150) * scaleRatio;
-        const verticalGap = Math.min(Math.max(-100, Math.random() * 200 - 100), 100) * scaleRatio;
-
+      while (currentX < LEVEL_END_X - 500) {
+        const horizontalGap = 100 + Math.random() * 150;
+        const verticalGap = Math.min(Math.max(-100, Math.random() * 200 - 100), 100);
+        
         const nextX = currentX + horizontalGap;
         const nextY = currentY + verticalGap;
 
         platforms.push({
           x: nextX,
-          y: Math.min(Math.max(nextY, 150 * scaleRatio), floorY - 50 * scaleRatio),
-          baseWidth: 200 + Math.random() * 100,
-          height: 20 * scaleRatio,
-          get width() { return this.baseWidth * scaleRatio }
+          y: Math.min(Math.max(nextY, 150), floorY - 50),
+          width: 200 + Math.random() * 100,
+          height: 20
         });
 
         currentX = nextX;
@@ -157,34 +124,31 @@
       }
 
       platforms.push({
-        x: LEVEL_END_X - 400 * scaleRatio,
+        x: LEVEL_END_X - 400,
         y: floorY,
-        baseWidth: 200,
-        height: 20 * scaleRatio,
-        get width() { return this.baseWidth * scaleRatio }
+        width: 200,
+        height: 20
       });
 
       return platforms;
     }
 
-    // Enemy Generation (scales with screen size)
+    // Enemy Generation
     function generateEnemies(platforms) {
       return platforms.slice(1).map(platform => {
         if (Math.random() < 0.3) {
           return {
-            x: platform.x + platform.width/2 - 16 * scaleRatio,
-            y: platform.y - 32 * scaleRatio,
-            baseWidth: 32,
-            baseHeight: 32,
-            get width() { return this.baseWidth * scaleRatio },
-            get height() { return this.baseHeight * scaleRatio }
+            x: platform.x + platform.width/2 - 16,
+            y: platform.y - 32,
+            width: 32,
+            height: 32
           };
         }
         return null;
       }).filter(Boolean);
     }
 
-    // Collision Detection (uses scaled values)
+    // Collision Detection
     function checkPlatformCollision() {
       player.onGround = false;
       blocks.forEach(block => {
@@ -197,6 +161,7 @@
             player.y = block.y - player.height;
             player.velocityY = 0;
             player.onGround = true;
+            player.jumpsRemaining = 2; // Reset jumps when landing
           }
           else if (player.velocityY < 0) {
             player.y = block.y + block.height;
@@ -223,7 +188,7 @@
       });
     }
 
-    // Player Physics
+    // Player Physics with Double Jump
     function updatePlayer() {
       if (isDead) return;
 
@@ -233,9 +198,14 @@
       player.velocityX *= FRICTION;
       player.velocityX = Math.max(-player.speed, Math.min(player.speed, player.velocityX));
 
-      if (keys.ArrowUp && player.onGround) {
-        player.velocityY = -12;
-        player.onGround = false;
+      // Double Jump Implementation
+      if (keys.ArrowUp && player.jumpsRemaining > 0) {
+        if (player.onGround || player.canDoubleJump) {
+          player.velocityY = -12;
+          player.onGround = false;
+          player.jumpsRemaining--;
+          player.canDoubleJump = player.jumpsRemaining > 0;
+        }
       }
 
       player.velocityY += GRAVITY;
@@ -266,6 +236,12 @@
           }
         }
       });
+
+      if (player.x + player.width > levelEnd.x &&
+          player.x < levelEnd.x + levelEnd.width &&
+          player.y + player.height > levelEnd.y) {
+        window.location.href = 'cut2.html';
+      }
     }
 
     // Camera System
@@ -329,14 +305,7 @@
       document.getElementById('overlay').style.display = 'none';
     });
 
-    // Setup Event Listeners
-    window.addEventListener('resize', () => {
-      resizeCanvas();
-      initializeGame();
-    });
-
     // Start Game
-    resizeCanvas();
     initializeGame();
     gameLoop();
   </script>
