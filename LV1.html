@@ -1,249 +1,370 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Responsive Platformer</title>
-  <style>
-    html, body {
-      margin: 0;
-      padding: 0;
-      overflow: hidden;
-      width: 100%;
-      height: 100%;
-    }
-    #gameCanvas {
-      display: block;
-      background: #87CEEB;
-      width: 100%;
-      height: 100%;
-    }
-    #overlay {
-      position: fixed;
-      width: 100%;
-      height: 100%;
-      background: rgba(0, 0, 0, 0.8);
-      color: white;
-      display: none;
-      justify-content: center;
-      align-items: center;
-      flex-direction: column;
-      font-size: min(5vw, 24px);
-    }
-    #restartButton {
-      padding: 1.5vh 3vw;
-      font-size: min(4vw, 20px);
-      margin-top: 2vh;
-      cursor: pointer;
-    }
-  </style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Spanish Quest-Level 1</title>
+    <style>
+        body { margin: 0; overflow: hidden; }
+        canvas { display: block; background: #87CEEB; }
+        #overlay {
+            position: fixed;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.8);
+            color: white;
+            display: none;
+            justify-content: center;
+            align-items: center;
+            flex-direction: column;
+        }
+        #restartButton {
+            padding: 10px 20px;
+            font-size: 20px;
+            margin-top: 20px;
+            cursor: pointer;
+        }
+        #waterGif, #enemyDeathGif {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            z-index: 10;
+            display: none;
+        }
+        #score {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            font-size: 24px;
+            color: white;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
+            z-index: 5;
+        }
+    </style>
 </head>
 <body>
-  <div id="overlay">
+<div id="overlay">
     <h1>You died</h1>
     <button id="restartButton">Restart</button>
-  </div>
-  <canvas id="gameCanvas"></canvas>
+</div>
+<div id="score">Score: 0</div>
+<canvas id="gameCanvas"></canvas>
+<img id="waterGif" src="https://i.pinimg.com/originals/01/f3/37/01f33796b530931cf14912559726548b.gif" alt="Water GIF">
+<img id="enemyDeathGif" src="https://media.baamboozle.com/uploads/images/262226/6531c428-2d12-45b8-b9bf-2329cd726a65.gif" alt="Enemy Death GIF">
 
-  <script>
-    // Initialize canvas and scaling
-    const canvas = document.getElementById('gameCanvas')
-    const ctx = canvas.getContext('2d')
-    const baseWidth = 800
-    const baseHeight = 400
-    let scaleRatio = 1
+<script>
+    const canvas = document.getElementById("gameCanvas");
+    const ctx = canvas.getContext("2d");
+    const waterGif = document.getElementById("waterGif");
+    const enemyDeathGif = document.getElementById("enemyDeathGif");
+    const scoreElement = document.getElementById("score");
 
-    // Screen adjustment system
-    const resizeCanvas = () => {
-      const widthRatio = window.innerWidth / baseWidth
-      const heightRatio = window.innerHeight / baseHeight
-      scaleRatio = Math.min(widthRatio, heightRatio)
-      
-      canvas.width = baseWidth * scaleRatio
-      canvas.height = baseHeight * scaleRatio
+    // Function to adjust canvas size dynamically
+    function resizeCanvas() {
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
     }
 
-    // Game constants
-    const GRAVITY = 0.5 * scaleRatio
-    const FRICTION = 0.85
-    const LEVEL_END_X = 5000
-    let cameraX = 0
-    let isDead = false
+    // Call resizeCanvas initially and whenever the window is resized
+    window.addEventListener('resize', resizeCanvas);
+    resizeCanvas();
 
-    // Player class with modern JS features
-    class Player {
-      constructor() {
-        this.baseWidth = 40
-        this.baseHeight = 60
-        this.x = 50
-        this.y = 50
-        this.velocityX = 0
-        this.velocityY = 0
-        this.speed = 15 * scaleRatio
-        this.onGround = false
-        this.jumpsRemaining = 2
-      }
+    // Game Settings
+    const GRAVITY = 0.5;
+    const FRICTION = 0.85;
+    const LEVEL_END_X = 5000;
+    let cameraX = 0;
+    let isDead = false;
+    let score = 0;
 
-      get width() {
-        return this.baseWidth * scaleRatio
-      }
+    // Player Setup with Double Jump
+    const player = {
+        x: 50,
+        y: 50,
+        width: 40,
+        height: 60,
+        velocityX: 0,
+        velocityY: 0,
+        speed: 15,
+        onGround: false,
+        jumpsRemaining: 2,
+        canDoubleJump: true
+    };
 
-      get height() {
-        return this.baseHeight * scaleRatio
-      }
+    // Level Elements
+    let blocks = [];
+    let enemies = [];
+    const levelEnd = {
+        x: LEVEL_END_X - 200,
+        y: canvas.height - 250,
+        width: 200,
+        height: 250,
+        image: new Image()
+    };
 
-      update(keys) {
-        if (isDead) return
+    levelEnd.image.src = 'https://wallpapers.com/images/hd/pixelated-cave-entrace-2u94mar9b5un3n57.jpg';
 
-        // Horizontal movement
-        if (keys.ArrowRight) this.velocityX += 0.5 * scaleRatio
-        if (keys.ArrowLeft) this.velocityX -= 0.5 * scaleRatio
+    const enemyImage = new Image();
+    enemyImage.src = 'https://images-wixmp-ed30a86b8c4ca887773594c2.wixmp.com/f/991fc486-14c9-458c-bde4-451a600f8ed2/ddwln88-83253128-2cda-469a-9d72-b9e726269275.png?token=eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJ1cm46YXBwOjdlMGQxODg5ODIyNjQzNzNhNWYwZDQxNWVhMGQyNmUwIiwiaXNzIjoidXJuOmFwcDo3ZTBkMTg4OTgyMjY0MzczYTVmMGQ0MTVlYTBkMjZlMCIsIm9iaiI6W1t7InBhdGgiOiJcL2ZcLzk5MWZjNDg2LTE0YzktNDU4Yy1iZGU0LTQ1MWE2MDBmOGVkMlwvZGR3bG44OC04MzI1MzEyOC0yY2RhLTQ2OWEtOWQ3Mi1iOWU3MjYyNjkyNzUucG5nIn1dXSwiYXVkIjpbInVybjpzZXJ2aWNlOmZpbGUuZG93bmxvYWQiXX0.qYvrVvilj0ODvtTw9ic-XJgy47rHrDrgDwG7M2Xnke0';
+
+    // Initialize Game
+    function initializeGame() {
+        blocks = generatePlatformLayout();
+        enemies = generateEnemies(blocks);
+
+        player.x = blocks[0].x + blocks[0].width/2 - player.width/2;
+        player.y = blocks[0].y - player.height;
+        player.velocityX = 0;
+        player.velocityY = 0;
+        player.onGround = true;
+        player.jumpsRemaining = 2;
+        player.canDoubleJump = true;
+
+        cameraX = 0;
+        isDead = false;
+        score = 0;
+        scoreElement.textContent = `Score: ${score}`;
+
+        levelEnd.y = canvas.height - levelEnd.height - 50;
+    }
+
+    // Platform Generation
+    function generatePlatformLayout() {
+        const platforms = [];
+        const floorY = canvas.height - 50;
+
+        platforms.push({
+            x: 0,
+            y: floorY,
+            width: 300,
+            height: 20
+        });
+
+        let currentX = 300;
+        let currentY = floorY;
+
+        while (currentX < LEVEL_END_X - 500) {
+            const horizontalGap = 100 + Math.random() * 150;
+            const verticalGap = Math.min(Math.max(-100, Math.random() * 200 - 100), 100);
+
+            const nextX = currentX + horizontalGap;
+            const nextY = currentY + verticalGap;
+
+            platforms.push({
+                x: nextX,
+                y: Math.min(Math.max(nextY, canvas.height / 3), floorY - 50),
+                width: 200 + Math.random() * 100,
+                height: 20
+            });
+
+            currentX = nextX;
+            currentY = nextY;
+        }
+
+        platforms.push({
+            x: LEVEL_END_X - 400,
+            y: floorY,
+            width: 200,
+            height: 20
+        });
+
+        return platforms;
+    }
+
+    // Enemy Generation
+    function generateEnemies(platforms) {
+        return platforms.slice(1).map(platform => {
+            if (Math.random() < 0.3) {
+                return {
+                    x: platform.x + platform.width/2 - 16,
+                    y: platform.y - 32,
+                    width: 32,
+                    height: 32
+                };
+            }
+            return null;
+        }).filter(Boolean);
+    }
+
+    // Collision Detection
+    function checkPlatformCollision() {
+        player.onGround = false;
+        blocks.forEach(block => {
+            if (player.x < block.x + block.width &&
+                player.x + player.width > block.x &&
+                player.y + player.height > block.y &&
+                player.y < block.y + block.height) {
+                
+                if (player.velocityY > 0) {
+                    player.y = block.y - player.height;
+                    player.velocityY = 0;
+                    player.onGround = true;
+                    player.jumpsRemaining = 2;
+                }
+                else if (player.velocityY < 0) {
+                    player.y = block.y + block.height;
+                    player.velocityY = 0;
+                }
+            }
+
+            if (player.y + player.height > block.y &&
+                player.y < block.y + block.height) {
+                
+                if (player.velocityX > 0 && 
+                    player.x + player.width <= block.x &&
+                    player.x + player.width + player.velocityX > block.x) {
+                    player.x = block.x - player.width;
+                    player.velocityX = 0;
+                }
+                else if (player.velocityX < 0 && 
+                        player.x >= block.x + block.width &&
+                        player.x + player.velocityX < block.x + block.width) {
+                    player.x = block.x + block.width;
+                    player.velocityX = 0;
+                }
+            }
+        });
+    }
+
+    // Player Physics with Double Jump
+    function updatePlayer() {
+        if (isDead) return;
+
+        if (keys.ArrowRight) player.velocityX += 0.5;
+        if (keys.ArrowLeft) player.velocityX -= 0.5;
         
-        this.velocityX *= FRICTION
-        this.velocityX = Math.max(-this.speed, Math.min(this.speed, this.velocityX))
+        player.velocityX *= FRICTION;
+        player.velocityX = Math.max(-player.speed, Math.min(player.speed, player.velocityX));
 
-        // Double jump implementation
-        if (keys.ArrowUp) {
-          if (this.onGround) {
-            this.velocityY = -12 * scaleRatio
-            this.onGround = false
-            this.jumpsRemaining = 1
-          } else if (this.jumpsRemaining > 0) {
-            this.velocityY = -12 * scaleRatio
-            this.jumpsRemaining--
-          }
+        // Double Jump Implementation
+        if (keys.ArrowUp && player.jumpsRemaining > 0) {
+            if (player.onGround || player.canDoubleJump) {
+                player.velocityY = -12;
+                player.onGround = false;
+                player.jumpsRemaining--;
+                player.canDoubleJump = player.jumpsRemaining > 0;
+            }
         }
 
-        // Apply gravity
-        this.velocityY += GRAVITY
-        this.x += this.velocityX
-        this.y += this.velocityY
-        this.x = Math.max(0, Math.min(LEVEL_END_X - this.width, this.x))
-      }
+        player.velocityY += GRAVITY;
+        player.x += player.velocityX;
+        player.y += player.velocityY;
+        player.x = Math.max(0, Math.min(LEVEL_END_X - player.width, player.x));
+
+        checkPlatformCollision();
     }
 
-    // Initialize game objects
-    const player = new Player()
-    let blocks = []
-    let enemies = []
-
-    // Platform generation using array methods
-    const generatePlatforms = () => {
-      const floorY = canvas.height - 50 * scaleRatio
-      const platformData = [
-        { x: 0, y: floorY, width: 300 },
-        { x: 300, y: floorY - 100, width: 200 },
-        { x: 500, y: floorY - 50, width: 150 },
-        { x: LEVEL_END_X - 400, y: floorY, width: 200 }
-      ]
-
-      return platformData.map(platform => ({
-        ...platform,
-        height: 20 * scaleRatio,
-        width: platform.width * scaleRatio
-      }))
-    }
-
-    // Enemy generation using array methods
-    const generateEnemies = (platforms) => {
-      return platforms.slice(1)
-        .map(platform => (Math.random() < 0.3 ? {
-          x: platform.x + platform.width/2 - 16 * scaleRatio,
-          y: platform.y - 32 * scaleRatio,
-          width: 32 * scaleRatio,
-          height: 32 * scaleRatio
-        } : null))
-        .filter(Boolean)
-    }
-
-    // Collision detection using modern JS
-    const checkCollisions = () => {
-      // Platform collisions
-      player.onGround = false
-      blocks.forEach(block => {
-        if (player.x < block.x + block.width &&
-            player.x + player.width > block.x &&
-            player.y + player.height > block.y &&
-            player.y < block.y + block.height) {
-          
-          if (player.velocityY > 0) {
-            player.y = block.y - player.height
-            player.velocityY = 0
-            player.onGround = true
-            player.jumpsRemaining = 2
-          }
+    // Collision Handling
+    function checkCollisions() {
+        if (player.y + player.height > canvas.height) {
+            handleDeath('water');
+            return;
         }
-      })
 
-      // Enemy collisions
-      enemies.forEach(enemy => {
-        if (player.x < enemy.x + enemy.width &&
-            player.x + player.width > enemy.x &&
-            player.y < enemy.y + enemy.height &&
-            player.y + player.height > enemy.y) {
-          handleDeath()
+        enemies.forEach(enemy => {
+            if (player.x < enemy.x + enemy.width &&
+                player.x + player.width > enemy.x &&
+                player.y < enemy.y + enemy.height &&
+                player.y + player.height > enemy.y) {
+                if (player.velocityY > 0) {
+                    enemies = enemies.filter(e => e !== enemy);
+                    player.velocityY = -10;
+                    score += 100;
+                    scoreElement.textContent = `Score: ${score}`;
+                } else {
+                    handleDeath('enemy');
+                }
+            }
+        });
+
+        if (player.x + player.width > levelEnd.x &&
+            player.x < levelEnd.x + levelEnd.width &&
+            player.y + player.height > levelEnd.y) {
+            window.location.href = 'cut2.html';
         }
-      })
     }
 
-    // Game initialization
-    const initializeGame = () => {
-      blocks = generatePlatforms()
-      enemies = generateEnemies(blocks)
-      player.x = blocks[0].x + blocks[0].width/2 - player.width/2
-      player.y = blocks[0].y - player.height
-      cameraX = 0
-      isDead = false
+    // Camera System
+    function updateCamera() {
+        cameraX = Math.max(0, player.x - canvas.width/2);
+        cameraX = Math.min(cameraX, LEVEL_END_X - canvas.width);
     }
 
-    // Game loop using requestAnimationFrame
-    const gameLoop = () => {
-      if (!isDead) {
-        player.update(keys)
-        checkCollisions()
-        cameraX = Math.max(0, player.x - canvas.width/2)
-        cameraX = Math.min(cameraX, LEVEL_END_X - canvas.width)
-      }
+    // Death Handling
+    function handleDeath(type) {
+        isDead = true;
+        let deathGifElement;
+        if (type === 'water') {
+            waterGif.style.display = 'block';
+            deathGifElement = waterGif;
+        } else if (type === 'enemy') {
+            enemyDeathGif.style.display = 'block';
+            deathGifElement = enemyDeathGif;
+        }
 
-      // Rendering
-      ctx.clearRect(0, 0, canvas.width, canvas.height)
-      ctx.save()
-      ctx.translate(-cameraX, 0)
-
-      // Draw platforms
-      ctx.fillStyle = 'green'
-      blocks.forEach(p => ctx.fillRect(p.x, p.y, p.width, p.height))
-
-      // Draw enemies
-      ctx.fillStyle = 'red'
-      enemies.forEach(e => ctx.fillRect(e.x, e.y, e.width, e.height))
-
-      // Draw player
-      ctx.fillStyle = 'black'
-      ctx.fillRect(player.x, player.y, player.width, player.height)
-
-      ctx.restore()
-      requestAnimationFrame(gameLoop)
+        setTimeout(() => {
+            waterGif.style.display = 'none';
+            enemyDeathGif.style.display = 'none';
+            document.getElementById('overlay').style.display = 'flex';
+        }, 1000);
     }
 
-    // Event listeners
-    const keys = {}
-    window.addEventListener('keydown', e => { keys[e.code] = true })
-    window.addEventListener('keyup', e => { keys[e.code] = false })
-    window.addEventListener('resize', () => {
-      resizeCanvas()
-      initializeGame()
-    })
+    // Rendering
+    function draw() {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        
+        // Background
+        ctx.fillStyle = '#87CEEB';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
 
+        ctx.save();
+        ctx.translate(-cameraX, 0);
+
+        // Platforms
+        ctx.fillStyle = 'green';
+        blocks.forEach(p => ctx.fillRect(p.x, p.y, p.width, p.height));
+
+        // Enemies
+        enemies.forEach(enemy => {
+            ctx.drawImage(enemyImage, enemy.x, enemy.y, enemy.width, enemy.height);
+        });
+
+        // Level End
+        ctx.drawImage(levelEnd.image, levelEnd.x, levelEnd.y, levelEnd.width, levelEnd.height);
+
+        // Player
+        ctx.fillStyle = 'black';
+        ctx.fillRect(player.x, player.y, player.width, player.height);
+
+        ctx.restore();
+    }
+
+    // Game Loop
+    function gameLoop() {
+        if (!isDead) {
+            updatePlayer();
+            checkCollisions();
+            updateCamera();
+        }
+        draw();
+        requestAnimationFrame(gameLoop);
+    }
+
+    // Input Handling
+    const keys = {};
+    window.addEventListener('keydown', e => keys[e.code] = true);
+    window.addEventListener('keyup', e => keys[e.code] = false);
     document.getElementById('restartButton').addEventListener('click', () => {
-      initializeGame()
-      document.getElementById('overlay').style.display = 'none'
-    })
+        initializeGame();
+        document.getElementById('overlay').style.display = 'none';
+    });
 
-    // Start game
-    resizeCanvas()
-    initializeGame()
-    gameLoop()
-  </script>
+    // Start Game
+    initializeGame();
+    gameLoop();
+</script>
 </body>
 </html>
