@@ -389,13 +389,10 @@ function checkCollisions() {
         }
     });
 
-    // Check log landing (Level End Condition)
-    if (player.x + player.width > levelEnd.x &&
-        player.x < levelEnd.x + levelEnd.width &&
-        player.y + player.height > levelEnd.y &&
-        player.y + player.height - player.velocityY <= levelEnd.y) { // Ensure landing on top of log
-        localStorage.setItem('score', score); // Save score to local storage
-        window.location.href = 'cut3.html'; // Redirect to next level/page
+  // Inside the draw() function, after drawing the player:
+    if (player.x > LEVEL_END_X) {
+        localStorage.setItem('score', score);
+        window.location.href = 'cut3.html';
     }
 }
 
