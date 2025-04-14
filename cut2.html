@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cave Transition</title>
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+            background: #000;
+        }
+        #cave-background {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-image: url('https://wallpapers.com/images/hd/pixelated-cave-entrance-2u94mar9b5un3n57.jpg'); /* cave sprite */
+            background-size: cover;
+            background-position: center;
+            z-index: 1;
+        }
+        #boy {
+            position: absolute;
+            bottom: 20%;
+            left: 50%;
+            width: 100px; /* Adjust based on image size */
+            height: 150px;
+            background-image: url('https://static.vecteezy.com/system/resources/thumbnails/027/517/476/small_2x/pixel-art-hooddie-boy-character-png.png'); /* boy sprite */
+            background-size: contain;
+            background-repeat: no-repeat;
+            transform: translateX(-50%);
+            z-index: 2;
+            animation: walkIntoCave 4s linear forwards;
+        }
+        #black-fade {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: black;
+            opacity: 0;
+            z-index: 3;
+            animation: fadeToBlack 1s linear forwards;
+            animation-delay: 4s; /* Matches walk duration */
+        }
+
+        @keyframes walkIntoCave {
+            0% {
+                bottom: 20%;
+                left: 50%;
+                transform: translateX(-50%) scale(1);
+            }
+            100% {
+                bottom: 5%;
+                left: 70%;
+                transform: translateX(-50%) scale(0.3);
+            }
+        }
+        @keyframes fadeToBlack {
+            0% { opacity: 0; }
+            100% { opacity: 1; }
+        }
+    </style>
+</head>
+<body>
+    <div id="cave-background"></div>
+    <div id="boy"></div>
+    <div id="black-fade"></div>
+
+    <script>
+        // Redirect after animations complete
+        const blackFade = document.getElementById('black-fade');
+        blackFade.addEventListener('animationend', () => {
+            window.location.href = 'LV2.html';
+        });
+    </script>
+</body>
+</html>
