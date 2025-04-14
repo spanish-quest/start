@@ -1,0 +1,533 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Spanish Quest - Level 2 (Cave)</title>
+    <style>
+        body { margin: 0; overflow: hidden; background: #000; }
+        canvas { display: block; z-index: 1; }
+        #overlay { 
+            position: fixed; width: 100%; height: 100%; 
+            background: rgba(0,0,0,0.8); color: white; 
+            display: none; justify-content: center; 
+            align-items: center; flex-direction: column; z-index: 20; 
+        }
+        #restartButton { 
+            padding: 10px 20px; font-size: 20px; 
+            margin-top: 20px; cursor: pointer; 
+        }
+        #lavaDeathGif, #fallDeathGif, #spiderDeathGif { 
+            position: fixed; top: 0; left: 0; 
+            width: 100%; height: 100%; 
+            object-fit: cover; z-index: 15; display: none; 
+        }
+        #score { 
+            position: fixed; top: 20px; right: 20px; 
+            font-size: 24px; color: white; 
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.5); z-index: 10; 
+        }
+        #background { 
+            position: fixed; top: 0; left: 0; 
+            width: 100%; height: 100%; 
+            background-image: url('https://wallpapercave.com/wp/wp13159348.png'); 
+            background-size: cover; z-index: -1; 
+        }
+    </style>
+</head>
+<body>
+    <div id="overlay">
+        <h1>You died</h1>
+        <button id="restartButton">Restart</button>
+    </div>
+    <div id="score">Score: 0</div>
+    <canvas id="gameCanvas"></canvas>
+    <img id="lavaDeathGif" src="https://i.pinimg.com/originals/bd/e9/3d/bde93d0c75d44b269912e681a6b6bd75.gif">
+    <img id="fallDeathGif" src="https://media.tenor.com/wYXyXah_6eYAAAAM/jump-cave.gif">
+    <img id="spiderDeathGif" src="https://media.tenor.com/gpADCQEvlvYAAAAM/spider-man-pepe.gif">
+    <div id="background"></div>
+<script>
+// Canvas and Context
+const canvas = document.getElementById("gameCanvas");
+const ctx = canvas.getContext("2d");
+
+// Death Animations and Score Display
+const lavaDeathGif = document.getElementById("lavaDeathGif");
+const fallDeathGif = document.getElementById("fallDeathGif");
+const spiderDeathGif = document.getElementById("spiderDeathGif");
+const scoreElement = document.getElementById("score");
+
+// Initialize Canvas Dimensions
+function resizeCanvas() { 
+    canvas.width = window.innerWidth; 
+    canvas.height = window.innerHeight;
+}
+window.addEventListener('resize', resizeCanvas); 
+resizeCanvas();
+
+// Game Constants
+const GRAVITY = 0.6;
+const FRICTION = 0.82;
+const LEVEL_END_X = 8000;
+let cameraX = 0;
+let isDead = false;
+let score = localStorage.getItem('score') || 0;
+
+// Player Object (Dark Gray)
+const player = {
+    x: 50,
+    y: canvas.height - 150,
+    width: 40,
+    height: 60,
+    velocityX: 0,
+    velocityY: 0,
+    speed: 6,
+    onGround: false,
+    jumpsRemaining: 1,
+    color: '#A9A9A9' // Dark gray color
+};
+
+// Level Elements
+let platforms = [], enemies = [], lavaPits = [];
+const spiderImage = new Image();
+spiderImage.src = 'https://static.vecteezy.com/system/resources/previews/019/040/574/non_2x/retro-cartoon-brown-tarantula-free-png.png';
+const levelEnd = { 
+    x: LEVEL_END_X - 300,
+    y: canvas.height - 150,
+    width: 200,
+    height: 50,
+    image: new Image() 
+};
+levelEnd.image.src = 'https://openclipart.org/image/800px/218084';
+// Platform Generation (Guaranteed Reachable Path)
+function generatePlatforms() {
+    const platforms = [];
+    const floorY = canvas.height - 50;
+    const maxJumpHeight = player.height * 4.5;
+    const maxJumpDistance = player.width * 10;
+    const minPlatformY = canvas.height * 0.3; // 30% from top
+    const maxPlatformY = canvas.height * 0.8; // 80% from top
+
+    // Initial platform (starting point)
+    platforms.push({ x: 0, y: floorY, width: 300, height: 20 });
+
+    let currentX = platforms[0].x + platforms[0].width;
+    let currentY = floorY;
+
+    while (currentX < LEVEL_END_X - levelEnd.width) {
+        const horizontalGap = Math.random() * (maxJumpDistance - player.width) + player.width;
+        const verticalGap = Math.random() > 0.5 ? 
+            Math.random() * maxJumpHeight : 
+            -Math.random() * maxJumpHeight;
+
+        const nextX = currentX + horizontalGap;
+        let nextY = currentY + verticalGap;
+
+        // Constrain Y position to visible area
+        nextY = Math.max(minPlatformY, Math.min(nextY, maxPlatformY));
+        
+        // Ensure platforms are reachable
+        const verticalDistance = Math.abs(nextY - currentY);
+        if (verticalDistance > maxJumpHeight) {
+            nextY = currentY + (verticalGap > 0 ? 
+                maxJumpHeight * 0.8 : 
+                -maxJumpHeight * 0.8);
+        }
+
+        // Add platform
+        platforms.push({ 
+            x: nextX, 
+            y: nextY, 
+            width: Math.random() * (200 - player.width) + player.width * 4, 
+            height: 20 
+        });
+
+        // Add lava pits to every third platform
+        if (platforms.length % 3 === 0) {
+            const platform = platforms[platforms.length - 1];
+            lavaPits.push({
+                x: platform.x + platform.width * 0.15,
+                y: platform.y + platform.height,
+                width: platform.width * 0.7,
+                height: 30,
+                color: '#FF4500'
+            });
+        }
+
+        currentX = nextX;
+        currentY = nextY;
+    }
+
+    // Add final log platform
+    platforms.push(levelEnd);
+    return platforms;
+}
+
+// Keyboard Input Handling
+const keys = {};
+window.addEventListener('keydown', e => keys[e.code] = true);
+window.addEventListener('keyup', e => keys[e.code] = false);
+
+// Player Movement Logic
+function updatePlayer() {
+    // Horizontal Movement
+    if (keys['ArrowLeft'] || keys['KeyA']) {
+        player.velocityX = -player.speed;
+    } else if (keys['ArrowRight'] || keys['KeyD']) {
+        player.velocityX = player.speed;
+    } else {
+        player.velocityX *= FRICTION;
+    }
+
+    // Jumping
+    if ((keys['Space'] || keys['ArrowUp'] || keys['KeyW']) && 
+        player.jumpsRemaining > 0) {
+        player.velocityY = -15;
+        player.jumpsRemaining--;
+    }
+
+    // Apply Physics
+    player.velocityY += GRAVITY;
+    player.x += player.velocityX;
+    player.y += player.velocityY;
+
+    // Platform Collision
+    player.onGround = false;
+    platforms.forEach(platform => {
+        // Vertical collision
+        if (player.x < platform.x + platform.width &&
+            player.x + player.width > platform.x &&
+            player.y + player.height > platform.y &&
+            player.y + player.height - player.velocityY <= platform.y) {
+            
+            player.velocityY = 0;
+            player.y = platform.y - player.height;
+            player.onGround = true;
+            player.jumpsRemaining = 1;
+        }
+
+        // Horizontal collision
+        if (player.y < platform.y + platform.height &&
+            player.y + player.height > platform.y) {
+            
+            // Left side
+            if (player.x + player.width > platform.x && 
+                player.x < platform.x) {
+                player.x = platform.x - player.width;
+            }
+            // Right side
+            if (player.x < platform.x + platform.width && 
+                player.x + player.width > platform.x + platform.width) {
+                player.x = platform.x + platform.width;
+            }
+        }
+    });
+}
+// Initialize Game State
+function initializeGame() {
+    platforms = generatePlatforms();
+    enemies = platforms
+        .filter((_, index) => index % 3 !== 0)
+        .filter(() => Math.random() > 0.7)
+        .map(platform => ({
+            x: platform.x + platform.width / 2,
+            y: platform.y - 150,
+            width: 40,
+            height: 40,
+            speedY: 3,
+            webLength: 100,
+            time: 0,
+            originalY: platform.y - 150
+        }));
+    lavaPits = [];
+    player.x = platforms[0].x + 50;
+    player.y = platforms[0].y - player.height;
+    cameraX = 0;
+    isDead = false;
+    scoreElement.textContent = `Score: ${score}`;
+}
+
+// Update Spider Enemies
+function updateSpiders() {
+    enemies.forEach(enemy => {
+        enemy.time += 0.1;
+        enemy.y = enemy.originalY + Math.sin(enemy.time * 3) * 30;
+    });
+}
+
+// Handle Collision Detection
+function checkCollisions() {
+    // Check lava pits
+    lavaPits.forEach(pit => {
+        if (player.x < pit.x + pit.width && 
+            player.x + player.width > pit.x && 
+            player.y + player.height > pit.y) {
+            handleDeath('lava');
+        }
+    });
+
+    // Check fall death
+    if (player.y > canvas.height + 100) {
+        handleDeath('fall');
+    }
+
+    // Check spider collisions
+    enemies.forEach(enemy => {
+        if (player.x < enemy.x + enemy.width && 
+            player.x + player.width > enemy.x &&
+            player.y < enemy.y + enemy.height && 
+            player.y + player.height > enemy.y) {
+
+            if (player.velocityY > 0) { // Player descending (can stomp)
+                enemies = enemies.filter(e => e !== enemy);
+                player.velocityY = -12;
+                score += 150;
+                scoreElement.textContent = `Score: ${score}`;
+            } else { // Player ascending/lateral collision
+                handleDeath('spider');
+            }
+        }
+    });
+
+    // Check ANY contact with the log (simplified collision check)
+    if (player.x < levelEnd.x + levelEnd.width && 
+        player.x + player.width > levelEnd.x &&
+        player.y < levelEnd.y + levelEnd.height && 
+        player.y + player.height > levelEnd.y) {
+        
+        localStorage.setItem('score', score);
+        window.location.href = 'cut3.html'; // Redirect on any contact
+    }
+}
+
+// Handle Death Conditions
+function handleDeath(type) {
+    isDead = true;
+    if (type === 'lava') {
+        lavaDeathGif.style.display = 'block';
+    } else if (type === 'fall') {
+        fallDeathGif.style.display = 'block';
+    } else if (type === 'spider') {
+        spiderDeathGif.style.display = 'block';
+    }
+    setTimeout(() => {
+        lavaDeathGif.style.display = 'none';
+        fallDeathGif.style.display = 'none';
+        spiderDeathGif.style.display = 'none';
+        document.getElementById('overlay').style.display = 'flex';
+    }, 1000);
+}
+
+// Update Camera Position
+function updateCamera() {
+    cameraX = Math.max(0, player.x - canvas.width / 2);
+    cameraX = Math.min(cameraX, LEVEL_END_X - canvas.width);
+}
+// Initialize Game State
+function initializeGame() {
+    platforms = generatePlatforms();
+    enemies = platforms
+        .filter((_, index) => index % 3 !== 0)
+        .filter(() => Math.random() > 0.7)
+        .map(platform => ({
+            x: platform.x + platform.width / 2,
+            y: platform.y - 150,
+            width: 40,
+            height: 40,
+            speedY: 3,
+            webLength: 100,
+            time: 0,
+            originalY: platform.y - 150
+        }));
+    lavaPits = [];
+    player.x = platforms[0].x + 50;
+    player.y = platforms[0].y - player.height;
+    cameraX = 0;
+    isDead = false;
+    scoreElement.textContent = `Score: ${score}`;
+}
+
+// Update Spider Enemies
+function updateSpiders() {
+    enemies.forEach(enemy => {
+        enemy.time += 0.1;
+        enemy.y = enemy.originalY + Math.sin(enemy.time * 3) * 30;
+    });
+}
+
+// Handle Collision Detection
+function checkCollisions() {
+    // Check lava pits
+    lavaPits.forEach(pit => {
+        if (player.x < pit.x + pit.width &&
+            player.x + player.width > pit.x &&
+            player.y + player.height > pit.y) {
+            handleDeath('lava');
+        }
+    });
+
+    // Check fall death
+    if (player.y > canvas.height + 100) {
+        handleDeath('fall');
+    }
+
+    // Check spider collisions
+    enemies.forEach(enemy => {
+        if (player.x < enemy.x + enemy.width &&
+            player.x + player.width > enemy.x &&
+            player.y < enemy.y + enemy.height &&
+            player.y + player.height > enemy.y) {
+
+            if (player.velocityY > 0) { // Player descending (can stomp)
+                enemies = enemies.filter(e => e !== enemy);
+                player.velocityY = -12;
+                score += 150;
+                scoreElement.textContent = `Score: ${score}`;
+            } else { // Player ascending/lateral collision
+                handleDeath('spider');
+            }
+        }
+    });
+
+    // Check log landing (Level End Condition)
+    if (player.x + player.width > levelEnd.x &&
+        player.x < levelEnd.x + levelEnd.width &&
+        player.y + player.height > levelEnd.y &&
+        player.y + player.height - player.velocityY <= levelEnd.y) { // Ensure landing on top of log
+        localStorage.setItem('score', score); // Save score to local storage
+        window.location.href = 'cut3.html'; // Redirect to next level/page
+    }
+}
+
+// Handle Death Conditions
+function handleDeath(type) {
+    isDead = true;
+    if (type === 'lava') {
+        lavaDeathGif.style.display = 'block';
+    } else if (type === 'fall') {
+        fallDeathGif.style.display = 'block';
+    } else if (type === 'spider') {
+        spiderDeathGif.style.display = 'block';
+    }
+    setTimeout(() => {
+        lavaDeathGif.style.display = 'none';
+        fallDeathGif.style.display = 'none';
+        spiderDeathGif.style.display = 'none';
+        document.getElementById('overlay').style.display = 'flex';
+    }, 1000);
+}
+
+// Update Camera Position
+function updateCamera() {
+    cameraX = Math.max(0, player.x - canvas.width / 2);
+    cameraX = Math.min(cameraX, LEVEL_END_X - canvas.width);
+}
+// Draw Game Elements
+function draw() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.save();
+    ctx.translate(-cameraX, 0);
+
+    // Draw platforms
+    platforms.forEach(platform => {
+        ctx.fillStyle = '#654321';
+        ctx.fillRect(platform.x, platform.y, platform.width, platform.height);
+    });
+
+    // Draw lava with enhanced visibility
+    lavaPits.forEach(pit => {
+        const pulse = Math.sin(performance.now() * 0.005) * 0.2 + 1;
+        
+        // Lava glow effect
+        ctx.beginPath();
+        ctx.rect(
+            pit.x - 10 * pulse,
+            pit.y - 5 * pulse,
+            pit.width + 20 * pulse,
+            pit.height + 10 * pulse
+        );
+        
+        const gradient = ctx.createRadialGradient(
+            pit.x + pit.width / 2,
+            pit.y + pit.height / 2,
+            10 * pulse,
+            pit.x + pit.width / 2,
+            pit.y + pit.height / 2,
+            pit.width * pulse
+        );
+        
+        gradient.addColorStop(0, 'rgba(255,69,0,0.6)');
+        gradient.addColorStop(1, 'rgba(255,69,0,0)');
+        
+        ctx.fillStyle = gradient;
+        ctx.fill();
+
+        // Lava body
+        ctx.fillStyle = pit.color;
+        ctx.fillRect(pit.x, pit.y, pit.width, pit.height);
+        
+        // Lava bubbles animation
+        ctx.fillStyle = 'rgba(255,255,255,0.4)';
+        
+        const bubbleCount = Math.floor(pit.width / 20);
+        
+        for (let i = 0; i < bubbleCount; i++) {
+            const offset = (performance.now() / 150 + i * 50) % pit.width;
+            const size = 2 + Math.sin(performance.now() / 300 + i) * 2;
+            
+            ctx.beginPath();
+            ctx.arc(
+                pit.x + offset,
+                pit.y - size / 2,
+                size,
+                0,
+                Math.PI * 2
+            );
+            
+            ctx.fill();
+        }
+    });
+
+    // Draw spiders
+    enemies.forEach(enemy => {
+        ctx.drawImage(spiderImage, enemy.x, enemy.y, enemy.width, enemy.height);
+    });
+
+    // Draw the player (dark gray)
+    ctx.fillStyle = player.color;
+    ctx.fillRect(player.x, player.y, player.width, player.height);
+
+    // Draw level end (log)
+    ctx.drawImage(levelEnd.image, levelEnd.x, levelEnd.y, levelEnd.width, levelEnd.height);
+
+    ctx.restore();
+}
+
+// Main Game Loop
+function gameLoop() {
+    if (!isDead) {
+        updateCamera();
+        updatePlayer();
+        updateSpiders();
+        checkCollisions();
+        draw();
+        
+        requestAnimationFrame(gameLoop);
+    }
+}
+
+// Initialize and Start Game
+initializeGame();
+gameLoop();
+
+// Restart Button Logic
+document.getElementById('restartButton').addEventListener('click', () => {
+    document.getElementById('overlay').style.display = 'none';
+    
+    initializeGame();
+    
+    gameLoop();
+});
+</script>
+</body>
+</html>
