@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Spanish Quest-Level 3 (Kong)</title>
+    <title>Donkey Kong HTML Replica</title>
     <style>
         body { margin: 0; overflow: hidden; background: #000; }
         canvas { display: block; }
