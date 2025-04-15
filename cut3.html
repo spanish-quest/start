@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Simplified Monkey Transition</title>
+  <style>
+    body { margin: 0; overflow: hidden; background: #1A3D1A; }
+    canvas { display: block; }
+    #transition {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: black;
+      opacity: 0;
+      pointer-events: none;
+      z-index: 100;
+      transition: opacity 1s;
+    }
+  </style>
+</head>
+<body>
+<canvas id="game"></canvas>
+<div id="transition"></div>
+<script>
+const canvas = document.getElementById('game');
+const ctx = canvas.getContext('2d');
+const transition = document.getElementById('transition');
+canvas.width = 800;
+canvas.height = 600;
+
+// Game state
+let gameState = 'player-jump';
+let jumpProgress = 0;
+let holdTimer = 0;
+const jumpHeight = 150;
+const jumpDuration = 60;
+
+// Load images
+const playerImg = new Image();
+playerImg.src = 'https://static.vecteezy.com/system/resources/thumbnails/027/517/476/small_2x/pixel-art-hooddie-boy-character-png.png';
+
+const monkeyImg = new Image();
+monkeyImg.src = 'https://cdn.viva.org.uk/wp-content/uploads/2022/06/Brown-Howler-Monkey.png';
+
+// Game elements
+const elements = {
+  player: {
+    x: 200,
+    y: 450,
+    width: 60,
+    height: 80,
+    jumpTargetX: 500
+  },
+  platforms: {
+    leftBrown: { x: 100, y: 550, width: 200, height: 30, color: '#8B4513' },
+    rightGreen: { x: 500, y: 550, width: 200, height: 30, color: '#228B22' },
+    monkeyPlatform: { x: 300, y: 400, width: 200, height: 30, color: '#8B4513' }
+  },
+  monkey: {
+    x: 350,
+    y: 320,
+    width: 150,
+    height: 120,
+    targetX: 685,
+    speed: 2.5,
+    state: 'waiting'
+  },
+  vine: {
+    x: 685,
+    y: -1000,
+    width: 30,
+    height: 2000,
+    color: '#2E8B57'
+  }
+};
+
+function draw() {
+  // Clear canvas
+  ctx.fillStyle = '#1A3D1A';
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+  if (gameState === 'player-jump') {
+    // Draw platforms
+    drawPlatform(elements.platforms.leftBrown);
+    drawPlatform(elements.platforms.rightGreen);
+
+    // Calculate jump arc
+    const jumpX = elements.player.x + 
+                 (jumpProgress/jumpDuration) * 
+                 (elements.player.jumpTargetX - elements.player.x);
+    const jumpY = elements.player.y - 
+                 Math.sin((jumpProgress/jumpDuration) * Math.PI) * jumpHeight;
+
+    // Draw player
+    drawImage(playerImg, jumpX, jumpY, 
+             elements.player.width, elements.player.height, 'red');
+
+    jumpProgress++;
+    
+    // When jump completes
+    if (jumpProgress >= jumpDuration) {
+      gameState = 'hold-player';
+      holdTimer = 0;
+    }
+  } 
+  else if (gameState === 'hold-player') {
+    // Pause for 1 second after landing
+    drawPlatform(elements.platforms.leftBrown);
+    drawPlatform(elements.platforms.rightGreen);
+    drawImage(playerImg, elements.player.jumpTargetX, elements.player.y, 
+             elements.player.width, elements.player.height, 'red');
+
+    holdTimer++;
+    if (holdTimer >= 60) { // 1 second at 60fps
+      gameState = 'show-monkey';
+    }
+  }
+  else if (gameState === 'show-monkey') {
+    // Direct cut to monkey on platform
+    drawPlatform(elements.platforms.monkeyPlatform);
+    drawImage(monkeyImg, elements.monkey.x, elements.monkey.y, 
+             elements.monkey.width, elements.monkey.height, 'brown');
+    
+    // After brief pause, start moving to vine
+    setTimeout(() => {
+      gameState = 'monkey-slide';
+    }, 1000);
+  }
+  else if (gameState === 'monkey-slide') {
+    // Monkey slides to vine
+    elements.monkey.x += elements.monkey.speed;
+    
+    drawPlatform(elements.platforms.monkeyPlatform);
+    drawPlatform({x: 685, y: 550, width: 30, height: 30, color: '#8B4513'});
+    drawImage(monkeyImg, elements.monkey.x, elements.monkey.y, 
+             elements.monkey.width, elements.monkey.height, 'brown');
+    drawVine();
+
+    if (elements.monkey.x >= elements.monkey.targetX) {
+      gameState = 'monkey-climb';
+    }
+  }
+  else if (gameState === 'monkey-climb') {
+    // Monkey climbs up vine
+    elements.monkey.y -= elements.monkey.speed;
+    elements.monkey.x = elements.monkey.targetX + 15;
+    
+    drawVine();
+    drawImage(monkeyImg, elements.monkey.x - 30, elements.monkey.y, 
+             elements.monkey.width, elements.monkey.height, 'brown');
+
+    if (elements.monkey.y + elements.monkey.height < 0) {
+      gameState = 'fade-out';
+      transition.style.opacity = 1;
+      setTimeout(() => {
+        window.location.href = 'LVDK.html';
+      }, 1000);
+    }
+  }
+}
+
+function drawPlatform(platform) {
+  ctx.fillStyle = platform.color;
+  ctx.fillRect(platform.x, platform.y, platform.width, platform.height);
+}
+
+function drawImage(img, x, y, w, h, fallbackColor) {
+  if (img.complete) {
+    ctx.drawImage(img, x, y, w, h);
+  } else {
+    ctx.fillStyle = fallbackColor;
+    ctx.fillRect(x, y, w, h);
+  }
+}
+
+function drawVine() {
+  ctx.fillStyle = elements.vine.color;
+  ctx.fillRect(elements.vine.x, 0, elements.vine.width, elements.vine.height);
+}
+
+function gameLoop() {
+  draw();
+  requestAnimationFrame(gameLoop);
+}
+
+gameLoop();
+</script>
+</body>
+</html>
