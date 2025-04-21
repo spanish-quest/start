@@ -1,0 +1,436 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Snake Boss Fight</title>
+<style>
+  html, body { margin: 0; padding: 0; overflow: hidden; width: 100vw; height: 100vh; }
+  body { background-image: url('https://i.pinimg.com/1200x/92/68/da/9268da242c22b956a129dc397a096c78.jpg'); background-size: cover; }
+  #game-container { position: relative; width: 100vw; height: 100vh; overflow: hidden; }
+  #ground { position: absolute; bottom: 0; left: 0; width: 100vw; height: 100px; background: #2d5a27; z-index: 1; }
+  #boss { position: absolute; right: 50px; bottom: 100px; width: 320px; height: 320px; background-image: url('https://i.giphy.com/W35N9UjK5v5Y1panfc.webp'); background-size: cover; z-index: 2; }
+  #health-bar { position: fixed; top: 20px; right: 20px; width: 200px; height: 20px; background-color: #444; border: 2px solid #000; z-index: 10; }
+  #health { height: 100%; background-color: #ff0000; transition: width 0.3s ease; }
+  .hearts { position: fixed; top: 20px; left: 20px; display: flex; gap: 10px; z-index: 10; }
+  .heart { width: 30px; height: 30px; background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path fill="red" d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg>'); background-size: cover; }
+  #player { position: absolute; width: 40px; height: 40px; background-color: #000; z-index: 2; }
+  .player-hurt { animation: flash 0.5s linear infinite; }
+  @keyframes flash { 0%, 100% { background-color: #000; } 50% { background-color: #fff; } }
+  #win-text { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); font-size: 72px; color: gold; text-shadow: 4px 4px #000; display: none; z-index: 1000; }
+  .attack-indicator { position: absolute; width: 40px; height: 40px; background: rgba(255,0,0,0.5); border-radius: 50%; z-index: 5; }
+  .venom { position: absolute; width: 20px; height: 20px; background-color: #0f0; border-radius: 50%; z-index: 3; animation: venom-shoot 0.7s forwards; }
+  @keyframes venom-shoot { 0% { transform: translateY(0); opacity: 1;} 80% { opacity: 1;} 100% { transform: translateY(-200px); opacity: 0;} }
+  .rock { position: absolute; width: 15px; height: 15px; background-color: #888; border-radius: 50%; z-index: 3; }
+  .tiny-snake { position: absolute; bottom: 100px; width: 50px; height: 30px; background-image: url('https://images-wixmp-ed30a86b8c4ca887773594c2.wixmp.com/f/b9e405d8-7e26-4ce3-a7d8-dd388ca2b4dc/d5e4bke-283f539b-5742-4dc5-aba6-89ab0a77a4af.png/v1/fill/w_900,h_720/snake_png_3_by_moonglowlilly_d5e4bke-fullview.png'); background-size: cover; z-index: 3; }
+  .screen-shake { animation: screen-shake 0.5s; }
+  @keyframes screen-shake { 0% { transform: translate(0,0); } 25% { transform: translate(10px,10px); } 50% { transform: translate(-10px,-10px); } 75% { transform: translate(-5px,5px); } 100% { transform: translate(0,0); } }
+</style>
+</head>
+<body>
+<div id="game-container">
+  <div id="win-text">YOU WIN!</div>
+  <div id="health-bar"><div id="health"></div></div>
+  <div class="hearts" id="hearts"></div>
+  <div id="boss"></div>
+  <div id="player"></div>
+  <div id="ground"></div>
+</div>
+
+<script>
+  // --- CONSTANTS ---
+  const GROUND_Y = 100;
+  const PLAYER_WIDTH = 40;
+  const PLAYER_HEIGHT = 40;
+  const gravity = -1.2; // Negative gravity pulls DOWN
+  const moveAcceleration = 1.5;
+  const maxSpeedX = 7;
+  const friction = 0.85;
+  const jumpVelocity = 20; // Positive is UP
+
+  // --- PLAYER STATE ---
+  let playerX = 100;
+  let playerY = GROUND_Y;
+  let velX = 0;
+  let velY = 0;
+  let accX = 0;
+
+  // --- INPUT STATE ---
+  let leftPressed = false;
+  let rightPressed = false;
+  let jumpPressed = false;
+
+  // --- GAME STATE ---
+  let bossHealth = 100;
+  let playerHearts = 3;
+  let hasRock = false;
+  let canTakeDamage = true;
+
+  // --- DOM ELEMENTS ---
+  const player = document.getElementById('player');
+  const heartsContainer = document.getElementById('hearts');
+  const healthBar = document.getElementById('health');
+  const boss = document.getElementById('boss');
+  const winText = document.getElementById('win-text');
+
+  // --- HEARTS UI ---
+  for(let i=0; i<3; i++) {
+    const heart = document.createElement('div');
+    heart.className = 'heart';
+    heartsContainer.appendChild(heart);
+  }
+
+  // --- INPUT HANDLING ---
+  window.addEventListener('keydown', e => {
+    if(e.key === 'ArrowLeft') leftPressed = true;
+    if(e.key === 'ArrowRight') rightPressed = true;
+    if((e.key === 'ArrowUp' || e.code === 'Space') && !jumpPressed) {
+      if(!isJumping()) {
+        velY = jumpVelocity; // Positive = up
+        jumpPressed = true;
+      }
+    }
+    if(e.key === 'e' && hasRock) throwRock();
+  });
+
+  window.addEventListener('keyup', e => {
+    if(e.key === 'ArrowLeft') leftPressed = false;
+    if(e.key === 'ArrowRight') rightPressed = false;
+    if(e.key === 'ArrowUp' || e.code === 'Space') jumpPressed = false;
+  });
+
+  function isJumping() {
+    // Player is in air if above ground or moving vertically
+    return playerY > GROUND_Y || velY !== 0;
+  }
+
+  // --- GAME LOOP ---
+  function gameLoop() {
+    // Horizontal movement
+    if(leftPressed) accX = -moveAcceleration;
+    else if(rightPressed) accX = moveAcceleration;
+    else accX = 0;
+
+    velX += accX;
+    if(accX === 0) velX *= friction;
+    velX = Math.max(-maxSpeedX, Math.min(maxSpeedX, velX));
+
+    // Apply gravity (pulls down)
+    velY += gravity;
+
+    // Update positions
+    playerX += velX;
+    playerY += velY;
+
+    // Clamp horizontal position inside viewport
+    playerX = Math.max(0, Math.min(window.innerWidth - PLAYER_WIDTH, playerX));
+
+    // Ground collision: if below ground, reset position and velocity
+    if (playerY < GROUND_Y) {
+      playerY = GROUND_Y;
+      velY = 0;
+    }
+
+    // Update player position in DOM
+    player.style.left = playerX + 'px';
+    player.style.bottom = playerY + 'px';
+
+    // --- COLLISION DETECTION (boss, venom, snakes) ---
+    if(canTakeDamage && checkCollision(player, boss)) takeDamage();
+
+    requestAnimationFrame(gameLoop);
+  }
+
+  // --- COLLISION DETECTION ---
+  function checkCollision(a, b) {
+    if (!a || !b) return false;
+    const aRect = a.getBoundingClientRect();
+    const bRect = b.getBoundingClientRect();
+    return !(aRect.right < bRect.left ||
+             aRect.left > bRect.right ||
+             aRect.bottom < bRect.top ||
+             aRect.top > bRect.bottom);
+  }
+
+  // --- DAMAGE & HEARTS ---
+  function takeDamage() {
+    if (!canTakeDamage || bossHealth <= 0) return;
+    playerHearts--;
+    heartsContainer.children[playerHearts].style.visibility = 'hidden';
+    canTakeDamage = false;
+    player.classList.add('player-hurt');
+    setTimeout(() => {
+      canTakeDamage = true;
+      player.classList.remove('player-hurt');
+    }, 3000);
+    if (playerHearts <= 0) {
+      alert('Game Over!');
+      location.reload();
+    }
+  }
+
+  // --- ROCK THROWING ---
+  function throwRock() {
+    hasRock = false;
+    const rock = document.createElement('div');
+    rock.className = 'rock';
+    rock.style.left = playerX + 'px';
+    rock.style.bottom = playerY + 'px';
+    document.getElementById('game-container').appendChild(rock);
+
+    const bossRect = boss.getBoundingClientRect();
+    const startX = playerX;
+    const startY = playerY;
+    const endX = bossRect.left + bossRect.width / 2 - 7;
+    const endY = bossRect.top + bossRect.height / 2 - 7;
+    const duration = 500;
+    const startTime = performance.now();
+
+    function animateRock(time) {
+      const elapsed = time - startTime;
+      const progress = Math.min(elapsed / duration, 1);
+      rock.style.left = startX + (endX - startX) * progress + 'px';
+      rock.style.bottom = startY + (endY - startY) * progress + 'px';
+      if (progress < 1) {
+        requestAnimationFrame(animateRock);
+      } else {
+        rock.remove();
+        bossHealth -= 15;
+        updateHealthBar();
+      }
+    }
+    requestAnimationFrame(animateRock);
+  }
+
+  // --- HEALTH BAR & WIN LOGIC ---
+  function updateHealthBar() {
+    healthBar.style.width = bossHealth + '%';
+    if (bossHealth <= 0) {
+      clearInterval(attackInterval);
+      winText.style.display = 'block';
+      boss.style.display = 'none';
+    }
+  }
+
+  // --- BOSS ATTACKS ---
+  let attackCooldown = false;
+  let attackInterval;
+
+  function startAttackCycle() {
+    setTimeout(() => {
+      attackInterval = setInterval(() => {
+        if (bossHealth <= 0) return;
+        if (!attackCooldown) {
+          attackCooldown = true;
+          randomAttack();
+          setTimeout(() => attackCooldown = false, 3000);
+        }
+      }, 100);
+    }, 1500);
+  }
+
+  function randomAttack() {
+    const roll = Math.random();
+    if (roll < 0.15) biteAttack();
+    else if (roll < 0.6) tailWhip();
+    else tinyRecruits();
+  }
+
+  function biteAttack() {
+    const container = document.getElementById('game-container');
+    container.classList.add('screen-shake');
+    setTimeout(() => container.classList.remove('screen-shake'), 500);
+
+    setTimeout(() => {
+      for (let i = 0; i < 3; i++) {
+        setTimeout(createVenom, i * 1000);
+      }
+    }, 1000);
+  }
+
+ function createVenom() {
+  const venom = document.createElement('div');
+  venom.className = 'venom';
+  // Start at a random spot along the ground
+  const left = Math.random() * (window.innerWidth - 30);
+  venom.style.left = left + 'px';
+  venom.style.bottom = GROUND_Y + 'px';
+  venom.style.width = '12px';
+  venom.style.height = '60px';
+  venom.style.background = 'linear-gradient(to top, #0f0 80%, #fff 100%)';
+  venom.style.borderRadius = '6px';
+  venom.style.opacity = '1';
+  venom.style.zIndex = 25;
+  venom.style.position = 'absolute';
+  document.getElementById('game-container').appendChild(venom);
+
+  // Animate the venom rising up and fading out
+  let frame = 0;
+  const totalFrames = 40; // ~0.7s at 60fps
+  const startBottom = GROUND_Y;
+  const endBottom = GROUND_Y + 160;
+  function animateVenom() {
+    frame++;
+    // Linear interpolation for position and opacity
+    const t = frame / totalFrames;
+    venom.style.bottom = (startBottom + (endBottom - startBottom) * t) + 'px';
+    venom.style.opacity = (1 - t).toString();
+    if (frame < totalFrames) {
+      requestAnimationFrame(animateVenom);
+    } else {
+      venom.remove();
+    }
+  }
+  animateVenom();
+
+  // 1/5 chance to spawn a rock at the venom's location
+  if (Math.random() < 0.2) {
+    setTimeout(() => createRockAt(left), 500);
+  }
+
+  // Only allow one hit per venom attack
+  let hit = false;
+  const venomTimer = setInterval(() => {
+    if (!hit && checkCollision(player, venom)) {
+      takeDamage();
+      hit = true;
+    }
+  }, 30);
+
+  setTimeout(() => {
+    clearInterval(venomTimer);
+    venom.remove();
+  }, 700);
+}
+
+  function createRockAt(x) {
+    const rock = document.createElement('div');
+    rock.className = 'rock';
+    rock.style.left = x + 'px';
+    rock.style.bottom = GROUND_Y + 'px';
+    document.getElementById('game-container').appendChild(rock);
+
+    const rockTimer = setInterval(() => {
+      if (bossHealth <= 0) return;
+      if (checkCollision(player, rock)) {
+        hasRock = true;
+        rock.remove();
+        clearInterval(rockTimer);
+      }
+    }, 50);
+  }
+
+function tailWhip() {
+  // Calculate where the player is standing
+  const playerRect = player.getBoundingClientRect();
+  const containerRect = document.getElementById('game-container').getBoundingClientRect();
+  // The bottom of the player (Y) is always at GROUND_Y, so we only care about X
+  const playerXPos = playerX + PLAYER_WIDTH / 2;
+
+  // Show a red warning bar where the tail will strike
+  const danger = document.createElement('div');
+  danger.className = 'attack-indicator';
+  danger.style.width = (window.innerWidth - playerXPos) + 'px';
+  danger.style.height = '40px';
+  danger.style.left = playerXPos + 'px';
+  danger.style.bottom = GROUND_Y + 'px';
+  danger.style.background = 'rgba(255,0,0,0.4)';
+  danger.style.borderRadius = '0';
+  document.getElementById('game-container').appendChild(danger);
+
+  // Give the player 1 second to move out of the way
+  setTimeout(() => {
+    danger.remove();
+    // Draw the tail as a long bar from the right to the player's X position
+    const tail = document.createElement('div');
+    tail.style.position = 'absolute';
+    tail.style.left = playerXPos + 'px';
+    tail.style.bottom = GROUND_Y + 'px';
+    tail.style.width = (window.innerWidth - playerXPos) + 'px';
+    tail.style.height = '40px';
+    tail.style.background = 'url(https://piskel-imgstore-b.appspot.com/img/a78febc2-1a3b-11f0-bec7-914de1e565be.gif)';
+    tail.style.backgroundSize = 'contain';
+    tail.style.backgroundRepeat = 'repeat-x';
+    tail.style.zIndex = 10;
+    tail.style.pointerEvents = 'none';
+    document.getElementById('game-container').appendChild(tail);
+
+    // Collision detection: if player is still in the strike zone, take damage
+    let hit = false;
+    let check = setInterval(() => {
+      // If any part of the player overlaps the tail
+      if (!hit && playerX + PLAYER_WIDTH > playerXPos) {
+        takeDamage();
+        hit = true;
+      }
+    }, 10);
+
+    // Tail lasts 0.7s, then disappears
+    setTimeout(() => {
+      tail.remove();
+      clearInterval(check);
+    }, 700);
+  }, 1000);
+}
+
+function tinyRecruits() {
+  // 1. Show a warning rectangle
+  const warning = document.createElement('div');
+  warning.style.position = 'absolute';
+  warning.style.left = '0';
+  warning.style.width = '100vw';
+  warning.style.height = '60px';
+  warning.style.bottom = GROUND_Y + 'px';
+  warning.style.background = 'rgba(255,0,0,0.35)';
+  warning.style.zIndex = 30;
+  warning.style.pointerEvents = 'none';
+  document.getElementById('game-container').appendChild(warning);
+
+  setTimeout(() => {
+    warning.remove();
+
+    // 2. Spawn tiny snakes after warning
+    for(let i=0; i<7; i++) {
+      const snake = document.createElement('div');
+      snake.className = 'tiny-snake';
+      // Use your specified snake image, bigger size
+      snake.style.backgroundImage = "url('https://www.pngall.com/wp-content/uploads/2016/03/Snake-PNG-Picture-300x225.png')";
+      snake.style.backgroundSize = "contain";
+      snake.style.backgroundRepeat = "no-repeat";
+      snake.style.width = "45px";
+      snake.style.height = "33px";
+      // Place snakes above the ground so they're visible
+      snake.style.left = (window.innerWidth - 60 + Math.random() * 30) + 'px';
+      snake.style.bottom = (GROUND_Y + 20 + Math.random() * 20) + 'px';
+      snake.style.zIndex = 31; // Above ground and warning
+      document.getElementById('game-container').appendChild(snake);
+
+      let sx = parseFloat(snake.style.left);
+      const speed = 6 + Math.random() * 3;
+      let hit = false;
+
+      function moveSnake() {
+        if(sx < -60) {
+          snake.remove();
+          return;
+        }
+        sx -= speed;
+        snake.style.left = sx + 'px';
+        // Only allow one hit per snake
+        if(!hit && checkCollision(player, snake)) {
+          takeDamage();
+          hit = true;
+        }
+        requestAnimationFrame(moveSnake);
+      }
+      moveSnake();
+    }
+  }, 1000); // 1 second warning
+}
+
+  // --- START GAME ---
+  gameLoop();
+  startAttackCycle();
+</script>
+</body>
+</html>
