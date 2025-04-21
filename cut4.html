@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Level 3 to Level 4 Cutscene</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <style>
+    html, body {
+      margin: 0; padding: 0; width: 100vw; height: 100vh; overflow: hidden;
+      background: #222;
+    }
+    /* Scene 1: Green background */
+    #scene {
+      position: relative;
+      width: 100vw;
+      height: 100vh;
+      background: #00c800; /* bright green */
+      overflow: hidden;
+      z-index: 1;
+    }
+    #egg {
+      position: absolute;
+      width: 70px; height: 90px;
+      left: calc(50vw - 35px); bottom: 130px;
+      z-index: 2;
+      background: url('https://pngimg.com/d/golden_egg_PNG40.png') center/contain no-repeat;
+    }
+    #player {
+      position: absolute;
+      width: 128px; height: 128px;
+      left: 10vw; bottom: 130px;
+      z-index: 3;
+      background: url('https://static.vecteezy.com/system/resources/thumbnails/027/517/476/small_2x/pixel-art-hooddie-boy-character-png.png') center/contain no-repeat;
+      transition: left 0.6s linear, bottom 0.1s, opacity 0.4s;
+    }
+    #tail {
+      position: absolute;
+      width: 180px; height: 0px;
+      left: 0vw; /* will be set dynamically */
+      bottom: 130px;
+      z-index: 4;
+      background: url('https://piskel-imgstore-b.appspot.com/img/a78febc2-1a3b-11f0-bec7-914de1e565be.gif') center bottom/contain no-repeat;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.2s, height 0.3s cubic-bezier(.42,0,.58,1.8);
+    }
+
+    /* Scene 2: Boss snake and player */
+    #newSnakeScene {
+      display: none;
+      position: absolute;
+      left: 0; top: 0; width: 100vw; height: 100vh;
+      background: url('https://i.pinimg.com/1200x/92/68/da/9268da242c22b956a129dc397a096c78.jpg') center center/cover no-repeat;
+      z-index: 10;
+      overflow: hidden;
+    }
+    #newSnake {
+      position: absolute;
+      width: 600px; height: 450px;
+      left: 60vw; bottom: 140px;
+      background: url('https://static.vecteezy.com/system/resources/thumbnails/040/533/566/small/ai-generated-snake-isolated-on-transparent-background-generative-ai-png.png') center/contain no-repeat;
+      z-index: 12;
+    }
+    #newPlayer {
+      position: absolute;
+      width: 128px; height: 128px;
+      left: 45vw; bottom: 180px;
+      background: url('https://static.vecteezy.com/system/resources/thumbnails/027/517/476/small_2x/pixel-art-hooddie-boy-character-png.png') center/contain no-repeat;
+      z-index: 13;
+      transform: rotate(90deg);
+      transition: transform 0.6s, bottom 0.6s;
+    }
+    #fade {
+      position: fixed;
+      left: 0; top: 0; width: 100vw; height: 100vh;
+      background: #000;
+      opacity: 0;
+      pointer-events: none;
+      z-index: 100;
+      transition: opacity 1s;
+    }
+  </style>
+</head>
+<body>
+  <!-- Scene 1 -->
+  <div id="scene">
+    <div id="egg"></div>
+    <div id="player"></div>
+    <div id="tail"></div>
+  </div>
+  <!-- Scene 2 -->
+  <div id="newSnakeScene">
+    <div id="newPlayer"></div>
+    <div id="newSnake"></div>
+  </div>
+  <div id="fade"></div>
+  <script>
+    // Elements
+    const player = document.getElementById('player');
+    const tail = document.getElementById('tail');
+    const newSnake = document.getElementById('newSnake');
+    const newPlayer = document.getElementById('newPlayer');
+    const newSnakeScene = document.getElementById('newSnakeScene');
+    const fade = document.getElementById('fade');
+    let playerX = 10;
+
+    // 1. Player walks to center
+    function walkToCenter() {
+      let walking = setInterval(() => {
+        playerX += 0.32;
+        player.style.left = playerX + 'vw';
+        if (playerX >= 50) {
+          clearInterval(walking);
+          setTimeout(showEggPause, 500);
+        }
+      }, 16);
+    }
+
+    // 2. Pause at egg, then trigger tail
+    function showEggPause() {
+      setTimeout(() => {
+        triggerTailGrab();
+      }, 700);
+    }
+
+    // 3. Tail erupts vertically out of the ground and throws player
+    function triggerTailGrab() {
+      tail.style.left = 'calc(50vw + 32px)';
+      tail.style.height = '0px';
+      tail.style.opacity = 1;
+
+      setTimeout(() => {
+        tail.style.height = '320px';
+        setTimeout(() => {
+          grabAndThrowPlayer();
+        }, 350);
+      }, 100);
+    }
+
+    // 4. Tail grabs and throws the player off to the right (without fade)
+    function grabAndThrowPlayer() {
+      let px = 50;
+      let py = 130;
+      let vx = 3.2;
+      let vy = 19;
+      let gravity = 1.05;
+
+      function arcThrow() {
+        px += vx;
+        py += vy;
+        vy -= gravity;
+
+        player.style.left = px + 'vw';
+        player.style.bottom = py + 'px';
+
+        if (px < 120 && py > -128) {
+          requestAnimationFrame(arcThrow);
+        } else {
+          setTimeout(hideTailAndSwitchScenes, 1000);
+        }
+      }
+      arcThrow();
+    }
+
+    // 5. Hide tail, show new scene after 1 second
+    function hideTailAndSwitchScenes() {
+      tail.style.opacity = 0;  // Tail goes underground
+      setTimeout(() => {
+        // "Cut" to the new scene (no fade)
+        document.getElementById('scene').style.display = 'none';
+        newSnakeScene.style.display = 'block';
+        flyPlayerIn();
+      }, 500);
+    }
+
+    // 6. Player flies in laying down, then stands up
+    function flyPlayerIn() {
+      // Start off-screen right and higher up
+      newPlayer.style.left = '110vw';
+      newPlayer.style.bottom = '400px';
+      newPlayer.style.transform = 'rotate(90deg)';
+      // Animate flying in and landing
+      setTimeout(() => {
+        newPlayer.style.left = '45vw';
+        newPlayer.style.bottom = '180px';
+        // After landing, stand up
+        setTimeout(() => {
+          newPlayer.style.transform = 'rotate(0deg)';
+        }, 1000);
+        // Fade out after standing up
+        setTimeout(fadeOutAndRedirect, 2000);
+      }, 100);
+    }
+
+    // 7. Fade out and redirect
+    function fadeOutAndRedirect() 
+      fade.style.opacity = 1;
+      setTimeout(() => {
+        window.location.href = 'LV4BOSS.html';
+      }, 1200);
+    }
+
+    // Start the cutscene
+    walkToCenter();
+  </script>
+</body>
+</html>
